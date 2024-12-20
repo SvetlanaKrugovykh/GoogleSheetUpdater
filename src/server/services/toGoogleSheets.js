@@ -5,18 +5,15 @@ const fs = require('fs')
 const path = require('path')
 
 module.exports.authorize = async function () {
-  const credentials = {
-    key: fs.readFileSync(path.resolve(__dirname, '../../path/to/localhost.key')),
-    cert: fs.readFileSync(path.resolve(__dirname, '../../path/to/localhost.pem'))
-  }
+  const keyFilePath = path.resolve(__dirname, '../../../path/to/serviceAccountKey.json')
   const auth = new google.auth.GoogleAuth({
-    credentials,
+    keyFile: keyFilePath,
     scopes: [process.env.GOOGLE_SHEETS_SCOPE],
   })
   return auth.getClient()
 }
 
-module.exports.readXlsxFile = function (filePath) {
+module.exports.readXlsxFile = async function (filePath) {
   const workbook = xlsx.readFile(filePath)
   const sheetName = workbook.SheetNames[0]
   const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1 })
