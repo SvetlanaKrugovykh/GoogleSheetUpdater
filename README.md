@@ -1,4 +1,4 @@
-# Authorization Service
+# Google Sheet Updater
 
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
