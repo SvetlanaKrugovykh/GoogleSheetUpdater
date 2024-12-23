@@ -11,7 +11,7 @@ module.exports.app = async function () {
     const xlsxFilePath = `${XLS_FILE_PATH}${process.env.XLS_FILE_NAME}`
 
     const sheetData = await gs.readXlsxFile(xlsxFilePath)
-    await gs.uploadToGoogleSheets(authClient, sheetData)
+    await gs.syncToGoogleSheets(authClient, sheetData)
   } catch (error) {
     console.error('Error processing Google Sheets:', error)
   }

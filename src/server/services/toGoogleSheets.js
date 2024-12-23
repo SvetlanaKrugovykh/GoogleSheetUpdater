@@ -20,30 +20,78 @@ module.exports.readXlsxFile = async function (filePath) {
   return sheetData
 }
 
-module.exports.uploadToGoogleSheets = async function (auth, sheetData) {
+module.exports.grantAccess = async function (auth, spreadsheetId, email) {
+  const drive = google.drive({ version: 'v3', auth })
+
+  try {
+    const permissions = {
+      type: 'user',
+      role: 'writer',
+      emailAddress: email,
+    }
+
+    await drive.permissions.create({
+      fileId: spreadsheetId,
+      resource: permissions,
+      fields: 'id',
+    })
+
+    console.log(`Access granted to ${email}`)
+  } catch (error) {
+    console.error('Error granting access:', error.message)
+  }
+}
+
+module.exports.syncToGoogleSheets = async function (auth, sheetData) {
   try {
     const sheets = google.sheets({ version: 'v4', auth })
-    const SPREADSHEET_ID = process.env.SPREADSHEET_ID
+    let SPREADSHEET_ID = process.env.SPREADSHEET_ID
+    let spreadsheetExists = false
 
-    if (!SPREADSHEET_ID) {
-      throw new Error('SPREADSHEET_ID is not defined in the environment variables')
+    if (SPREADSHEET_ID) {
+      try {
+        await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID })
+        spreadsheetExists = true
+        console.log(`Spreadsheet with ID ${SPREADSHEET_ID} exists.`)
+      } catch (error) {
+        console.warn(`Spreadsheet with ID ${SPREADSHEET_ID} does not exist or is inaccessible. A new one will be created.`)
+      }
+    }
+
+    if (!spreadsheetExists) {
+      console.log('Creating a new Google Sheet.')
+
+      const createResponse = await sheets.spreadsheets.create({
+        resource: {
+          properties: {
+            title: 'New Google Sheet',
+          },
+        },
+      })
+
+      SPREADSHEET_ID = createResponse.data.spreadsheetId
+      console.log(`New spreadsheet created with ID: ${SPREADSHEET_ID}`)
+
+      process.env.SPREADSHEET_ID = SPREADSHEET_ID
     }
 
     const range = 'Sheet1!A1'
+    const resource = { values: sheetData }
 
-    const resource = {
-      values: sheetData,
-    }
-
-    const response = sheets.spreadsheets.values.update({
+    const response = await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
       range: range,
       valueInputOption: 'RAW',
       resource,
     })
 
+    await module.exports.grantAccess(auth, SPREADSHEET_ID, process.env.GOOGLE_SHEETS_EMAIL)
+
+    const spreadsheetUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}`
+    console.log(`Access your Google Sheet here: ${spreadsheetUrl}`)
     console.log(`${response.data.updatedCells} cells updated in Google Sheets.`)
   } catch (error) {
-    console.error('Error uploading to Google Sheets:', error)
+    console.error('Error syncing to Google Sheets:', error.response?.data || error.message)
   }
 }
+
