@@ -20,23 +20,24 @@ module.exports.readXlsxFile = async function (filePath) {
   return sheetData
 }
 
-module.exports.grantAccess = async function (auth, spreadsheetId, email) {
+module.exports.grantAccess = async function (auth, spreadsheetId, userEmail) {
   const drive = google.drive({ version: 'v3', auth })
 
   try {
     const permissions = {
       type: 'user',
       role: 'writer',
-      emailAddress: email,
+      emailAddress: userEmail,
     }
 
     await drive.permissions.create({
+      auth,
       fileId: spreadsheetId,
-      resource: permissions,
+      requestBody: permissions,
       fields: 'id',
     })
 
-    console.log(`Access granted to ${email}`)
+    console.log(`Shared file ${fileId} with ${userEmail}`)
   } catch (error) {
     console.error('Error granting access:', error.message)
   }
