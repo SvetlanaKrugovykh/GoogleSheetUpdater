@@ -6,9 +6,14 @@ const path = require('path')
 
 module.exports.authorize = async function () {
   const keyFilePath = path.resolve(__dirname, '../../../path/to/serviceAccountKey.json')
+  const SCOPES = [
+    'https://www.googleapis.com/auth/drive',
+    'https://www.googleapis.com/auth/drive.file',
+    'https://www.googleapis.com/auth/spreadsheets'
+  ]
   const auth = new google.auth.GoogleAuth({
     keyFile: keyFilePath,
-    scopes: [process.env.GOOGLE_SHEETS_SCOPE],
+    scopes: SCOPES,
   })
   return auth.getClient()
 }
@@ -46,6 +51,8 @@ module.exports.grantAccess = async function (auth, spreadsheetId, userEmail) {
 module.exports.syncToGoogleSheets = async function (auth, sheetData) {
   try {
     const sheets = google.sheets({ version: 'v4', auth })
+    const drive = google.drive({ version: 'v3', auth })
+    const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID
     let SPREADSHEET_ID = process.env.SPREADSHEET_ID
     let spreadsheetExists = false
 
@@ -62,15 +69,18 @@ module.exports.syncToGoogleSheets = async function (auth, sheetData) {
     if (!spreadsheetExists) {
       console.log('Creating a new Google Sheet.')
 
-      const createResponse = await sheets.spreadsheets.create({
-        resource: {
-          properties: {
-            title: 'New Google Sheet',
-          },
-        },
+      const fileMetadata = {
+        name: 'New Google Sheet',
+        mimeType: 'application/vnd.google-apps.spreadsheet',
+        parents: [folderId],
+      }
+
+      const createResponse = await drive.files.create({
+        resource: fileMetadata,
+        fields: 'id',
       })
 
-      SPREADSHEET_ID = createResponse.data.spreadsheetId
+      SPREADSHEET_ID = createResponse.data.id
       console.log(`New spreadsheet created with ID: ${SPREADSHEET_ID}`)
 
       process.env.SPREADSHEET_ID = SPREADSHEET_ID
@@ -86,7 +96,7 @@ module.exports.syncToGoogleSheets = async function (auth, sheetData) {
       resource,
     })
 
-    await module.exports.grantAccess(auth, SPREADSHEET_ID, process.env.GOOGLE_SHEETS_EMAIL)
+    // await module.exports.grantAccess(auth, SPREADSHEET_ID, process.env.GOOGLE_SHEETS_EMAIL) //TODO if it is necessary to share the sheet with someone
 
     const spreadsheetUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}`
     console.log(`Access your Google Sheet here: ${spreadsheetUrl}`)
